@@ -167,7 +167,8 @@ public class Projectile : MonoBehaviour
     {
         if (hasHit) return;
 
-        RaycastHit hit = new RaycastHit
+        // Cria um HitInfo a partir da colisão
+        HitInfo hit = new HitInfo
         {
             point = collision.contacts[0].point,
             normal = collision.contacts[0].normal,
@@ -184,7 +185,8 @@ public class Projectile : MonoBehaviour
     {
         if (hasHit && !penetratesPlayers) return;
 
-        RaycastHit hit = new RaycastHit
+        // Cria um HitInfo a partir do trigger
+        HitInfo hit = new HitInfo
         {
             point = other.ClosestPoint(transform.position),
             normal = (transform.position - other.transform.position).normalized,
@@ -199,9 +201,23 @@ public class Projectile : MonoBehaviour
     #region HIT PROCESSING
 
     /// <summary>
-    /// Processa hit
+    /// Processa hit (versão sobrecarregada para RaycastHit)
     /// </summary>
     private void OnHit(RaycastHit hit)
+    {
+        HitInfo hitInfo = new HitInfo
+        {
+            point = hit.point,
+            normal = hit.normal,
+            collider = hit.collider
+        };
+        OnHit(hitInfo);
+    }
+
+    /// <summary>
+    /// Processa hit
+    /// </summary>
+    private void OnHit(HitInfo hit)
     {
         if (showDebug)
             Debug.Log($"[Projectile] Hit {hit.collider.name}");
@@ -250,7 +266,7 @@ public class Projectile : MonoBehaviour
     /// <summary>
     /// Hit em jogador
     /// </summary>
-    private void HitPlayer(NetworkPlayer player, RaycastHit hit)
+    private void HitPlayer(NetworkPlayer player, HitInfo hit)
     {
         // Aplica dano via servidor
         if (NetworkManager.Instance != null && NetworkManager.Instance.isServer)
@@ -278,7 +294,7 @@ public class Projectile : MonoBehaviour
     /// <summary>
     /// Hit em construção
     /// </summary>
-    private void HitBuilding(BuildingPiece building, RaycastHit hit)
+    private void HitBuilding(BuildingPiece building, HitInfo hit)
     {
         // Aplica dano
         building.TakeDamage(damage, ownerId, damageType);
@@ -361,7 +377,7 @@ public class Projectile : MonoBehaviour
     /// <summary>
     /// Gruda na superfície
     /// </summary>
-    private void StickToSurface(RaycastHit hit)
+    private void StickToSurface(HitInfo hit)
     {
         if (rb != null)
         {
@@ -453,6 +469,17 @@ public class Projectile : MonoBehaviour
     }
 
     #endregion
+}
+
+/// <summary>
+/// Struct para armazenar informações de hit
+/// (RaycastHit é read-only, então criamos nosso próprio)
+/// </summary>
+public struct HitInfo
+{
+    public Vector3 point;
+    public Vector3 normal;
+    public Collider collider;
 }
 
 /// <summary>
