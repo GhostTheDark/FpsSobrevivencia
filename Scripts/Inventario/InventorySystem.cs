@@ -12,7 +12,7 @@ public class InventorySystem : MonoBehaviour
     [Header("Inventory Configuration")]
     [SerializeField] private int mainInventorySize = 24; // 6x4 grid
     [SerializeField] private int hotbarSize = 6;
-    [SerializeField] private int wearableSlots = 7; // Head, Chest, Pants, Gloves, Boots, Vest, Belt
+    [SerializeField] private int wearableSlotsCount = 7; // Head, Chest, Pants, Gloves, Boots, Vest, Belt
 
     [Header("Debug")]
     [SerializeField] private bool showDebug = false;
@@ -48,7 +48,7 @@ public class InventorySystem : MonoBehaviour
         // Cria arrays de slots
         mainInventorySlots = new InventorySlot[mainInventorySize];
         hotbarSlots = new InventorySlot[hotbarSize];
-        wearableSlots = new InventorySlot[this.wearableSlots.Length];
+        wearableSlots = new InventorySlot[wearableSlotsCount];
 
         // Inicializa todos os slots vazios
         for (int i = 0; i < mainInventorySize; i++)
@@ -57,8 +57,8 @@ public class InventorySystem : MonoBehaviour
         for (int i = 0; i < hotbarSize; i++)
             hotbarSlots[i] = new InventorySlot();
 
-        for (int i = 0; i < this.wearableSlots.Length; i++)
-            this.wearableSlots[i] = new InventorySlot();
+        for (int i = 0; i < wearableSlotsCount; i++)
+            wearableSlots[i] = new InventorySlot();
 
         isInitialized = true;
 
