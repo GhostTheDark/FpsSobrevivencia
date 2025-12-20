@@ -170,22 +170,6 @@ public enum CraftingStation
 }
 
 /// <summary>
-/// Tipos de arma
-/// </summary>
-public enum WeaponType
-{
-    None,
-    Melee,
-    Bow,
-    Pistol,
-    Rifle,
-    Shotgun,
-    SMG,
-    LMG,
-    Launcher
-}
-
-/// <summary>
 /// Tipos de munição
 /// </summary>
 public enum AmmoType
