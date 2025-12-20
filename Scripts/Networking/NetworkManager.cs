@@ -219,7 +219,10 @@ public class NetworkManager : MonoBehaviour
         }
         else
         {
-            udpServer.Send(data, data.Length, connection.udpEndPoint);
+            if (connection.udpEndPoint != null)
+            {
+                udpServer.Send(data, data.Length, connection.udpEndPoint);
+            }
         }
     }
 
@@ -285,7 +288,19 @@ public class NetworkManager : MonoBehaviour
 
             // UDP
             udpClient = new UdpClient();
-            udpClient.Connect(tcpClient.Client.RemoteEndPoint);
+            
+            // Converte explicitamente EndPoint para IPEndPoint
+            EndPoint serverEndPoint = tcpClient.Client.RemoteEndPoint;
+            if (serverEndPoint is IPEndPoint ipEndPoint)
+            {
+                udpClient.Connect(ipEndPoint);
+            }
+            else
+            {
+                Debug.LogError("[CLIENT] Remote endpoint is not an IPEndPoint");
+                Disconnect();
+                return;
+            }
 
             isClient = true;
             isConnected = true;
