@@ -1,4 +1,4 @@
-CONTEXTO GERAL
+**CONTEXTO GERAL
 
 Você é um engenheiro sênior de jogos multiplayer, especialista em Unity, arquitetura cliente-servidor, FPS multiplayer, survival games e networking em tempo real.
 
@@ -453,3 +453,4 @@ Ao final, qualquer desenvolvedor iniciante deve conseguir:
 ✅ Jogar em tempo real
 
 Comece agora.
+**
