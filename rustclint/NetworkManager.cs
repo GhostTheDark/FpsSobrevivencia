@@ -7,7 +7,13 @@ using LiteNetLib;
 namespace RustlikeClient.Network
 {
     /// <summary>
-    /// ⭐ ATUALIZADO COM SISTEMA DE GATHERING
+    /// ⭐ VERSÃO COMPLETA - NetworkManager com todos os sistemas:
+    /// - Conexão e autenticação
+    /// - Movimento e sincronização
+    /// - Stats e inventário
+    /// - Gathering (recursos)
+    /// - Crafting
+    /// - ⭐ COMBATE (melee + ranged + respawn)
     /// </summary>
     public class NetworkManager : MonoBehaviour
     {
@@ -31,7 +37,7 @@ namespace RustlikeClient.Network
 
         private void Awake()
         {
-            Debug.Log("[NetworkManager] ========== AWAKE (LiteNetLib + Gathering) ==========");
+            Debug.Log("[NetworkManager] ========== AWAKE (VERSÃO COMPLETA) ==========");
             
             if (Instance != null && Instance != this)
             {
@@ -47,7 +53,7 @@ namespace RustlikeClient.Network
             _networking.OnPacketReceived += HandlePacket;
             _networking.OnDisconnected += HandleDisconnect;
             
-            Debug.Log("[NetworkManager] NetworkManager inicializado com LiteNetLib + Gathering");
+            Debug.Log("[NetworkManager] NetworkManager inicializado (LiteNetLib + Gathering + Crafting + Combat)");
         }
 
         public async void Connect(string ip, int port, string playerName)
@@ -95,7 +101,10 @@ namespace RustlikeClient.Network
 
         private void HandlePacket(Packet packet)
         {
-            if (packet.Type != PacketType.PlayerMovement && packet.Type != PacketType.StatsUpdate && packet.Type != PacketType.ResourceUpdate)
+            // Log apenas pacotes importantes (não spam de movimento/stats)
+            if (packet.Type != PacketType.PlayerMovement && 
+                packet.Type != PacketType.StatsUpdate && 
+                packet.Type != PacketType.ResourceUpdate)
             {
                 Debug.Log($"[NetworkManager] <<<< PACOTE: {packet.Type} >>>>");
             }
@@ -130,7 +139,7 @@ namespace RustlikeClient.Network
                     HandleInventoryUpdate(packet.Data);
                     break;
 
-                // ⭐ NOVO: Handlers de Gathering
+                // Gathering/Recursos
                 case PacketType.ResourcesSync:
                     HandleResourcesSync(packet.Data);
                     break;
@@ -150,28 +159,52 @@ namespace RustlikeClient.Network
                 case PacketType.GatherResult:
                     HandleGatherResult(packet.Data);
                     break;
+
+                // Crafting
+                case PacketType.RecipesSync:
+                    HandleRecipesSync(packet.Data);
+                    break;
+
+                case PacketType.CraftStarted:
+                    HandleCraftStarted(packet.Data);
+                    break;
+
+                case PacketType.CraftComplete:
+                    HandleCraftComplete(packet.Data);
+                    break;
+
+                case PacketType.CraftQueueUpdate:
+                    HandleCraftQueueUpdate(packet.Data);
+                    break;
+
+                // ⭐ COMBATE
+                case PacketType.AttackResult:
+                    HandleAttackResult(packet.Data);
+                    break;
+
+                case PacketType.TakeDamageNotify:
+                    HandleTakeDamageNotify(packet.Data);
+                    break;
+
+                case PacketType.PlayerKilled:
+                    HandlePlayerKilled(packet.Data);
+                    break;
+
+                case PacketType.RespawnResponse:
+                    HandleRespawnResponse(packet.Data);
+                    break;
+
+                case PacketType.WeaponStateUpdate:
+                    HandleWeaponStateUpdate(packet.Data);
+                    break;
                     
                 default:
                     Debug.LogWarning($"[NetworkManager] Tipo de pacote desconhecido: {packet.Type}");
                     break;
-					
-				case PacketType.RecipesSync:
-					HandleRecipesSync(packet.Data);
-					break;
-				
-				case PacketType.CraftStarted:
-					HandleCraftStarted(packet.Data);
-					break;
-				
-				case PacketType.CraftComplete:
-					HandleCraftComplete(packet.Data);
-					break;
-				
-				case PacketType.CraftQueueUpdate:
-					HandleCraftQueueUpdate(packet.Data);
-					break;
             }
         }
+
+        // ==================== CONEXÃO ====================
 
         private void HandleConnectionAccept(byte[] data)
         {
@@ -223,12 +256,12 @@ namespace RustlikeClient.Network
             _myPlayer = Instantiate(playerPrefab, _pendingSpawnPosition, Quaternion.identity);
             _myPlayer.name = $"LocalPlayer_{_myPlayerId}";
             
+            // Adiciona componentes necessários
             if (_myPlayer.GetComponent<Player.PlayerStatsClient>() == null)
             {
                 _myPlayer.AddComponent<Player.PlayerStatsClient>();
             }
 
-            // ⭐ NOVO: Adiciona GatheringSystem ao player
             if (_myPlayer.GetComponent<Player.GatheringSystem>() == null)
             {
                 _myPlayer.AddComponent<Player.GatheringSystem>();
@@ -271,117 +304,7 @@ namespace RustlikeClient.Network
             StartCoroutine(SendHeartbeat());
         }
 
-        private void HandleInventoryUpdate(byte[] data)
-        {
-            Debug.Log("[NetworkManager] ========== INVENTORY UPDATE ==========");
-            
-            var inventoryPacket = InventoryUpdatePacket.Deserialize(data);
-            Debug.Log($"[NetworkManager] Recebido inventário com {inventoryPacket.Slots.Count} itens");
-
-            if (UI.InventoryManager.Instance != null)
-            {
-                UI.InventoryManager.Instance.UpdateInventory(inventoryPacket);
-            }
-            else
-            {
-                Debug.LogError("[NetworkManager] InventoryManager não encontrado!");
-            }
-        }
-
-        // ⭐ NOVO: Handle de sincronização de recursos
-        private void HandleResourcesSync(byte[] data)
-        {
-            Debug.Log("[NetworkManager] ========== RESOURCES SYNC ==========");
-            
-            var packet = ResourcesSyncPacket.Deserialize(data);
-            Debug.Log($"[NetworkManager] Recebido {packet.Resources.Count} recursos do servidor");
-
-            if (World.ResourceManager.Instance != null)
-            {
-                World.ResourceManager.Instance.SpawnResources(packet.Resources);
-            }
-            else
-            {
-                Debug.LogError("[NetworkManager] ResourceManager não encontrado! Criando...");
-                
-                // Cria ResourceManager se não existir
-                GameObject rmObj = new GameObject("ResourceManager");
-                DontDestroyOnLoad(rmObj);
-                rmObj.AddComponent<World.ResourceManager>();
-                
-                // Tenta novamente
-                World.ResourceManager.Instance?.SpawnResources(packet.Resources);
-            }
-        }
-
-        // ⭐ NOVO: Handle de atualização de recurso
-        private void HandleResourceUpdate(byte[] data)
-        {
-            var packet = ResourceUpdatePacket.Deserialize(data);
-
-            if (World.ResourceManager.Instance != null)
-            {
-                World.ResourceManager.Instance.UpdateResourceHealth(packet.ResourceId, packet.Health, packet.MaxHealth);
-            }
-        }
-
-        // ⭐ NOVO: Handle de recurso destruído
-        private void HandleResourceDestroyed(byte[] data)
-        {
-            var packet = ResourceDestroyedPacket.Deserialize(data);
-            
-            Debug.Log($"[NetworkManager] 💥 Recurso {packet.ResourceId} foi destruído");
-
-            if (World.ResourceManager.Instance != null)
-            {
-                World.ResourceManager.Instance.DestroyResource(packet.ResourceId);
-            }
-        }
-
-        // ⭐ NOVO: Handle de recurso respawnado
-        private void HandleResourceRespawn(byte[] data)
-        {
-            var packet = ResourceRespawnPacket.Deserialize(data);
-            
-            Debug.Log($"[NetworkManager] ♻️ Recurso {packet.ResourceId} respawnou");
-
-            if (World.ResourceManager.Instance != null)
-            {
-                World.ResourceManager.Instance.RespawnResource(packet.ResourceId, packet.Health, packet.MaxHealth);
-            }
-        }
-
-        // ⭐ NOVO: Handle de resultado de coleta
-        private void HandleGatherResult(byte[] data)
-        {
-            var packet = GatherResultPacket.Deserialize(data);
-            
-            Debug.Log($"[NetworkManager] ✅ Recursos coletados: Wood={packet.WoodGained}, Stone={packet.StoneGained}, Metal={packet.MetalGained}, Sulfur={packet.SulfurGained}");
-
-            // Mostra feedback no GatheringSystem
-            if (_myPlayer != null)
-            {
-                var gatheringSystem = _myPlayer.GetComponent<Player.GatheringSystem>();
-                if (gatheringSystem != null)
-                {
-                    gatheringSystem.ShowGatherResult(
-                        packet.WoodGained,
-                        packet.StoneGained,
-                        packet.MetalGained,
-                        packet.SulfurGained
-                    );
-                }
-            }
-        }
-
-        private async void SendClientReadyAsync()
-        {
-            await _networking.SendPacketAsync(
-                PacketType.ClientReady, 
-                new byte[0],
-                DeliveryMethod.ReliableOrdered
-            );
-        }
+        // ==================== MOVIMENTO ====================
 
         private void HandlePlayerSpawn(byte[] data)
         {
@@ -440,6 +363,22 @@ namespace RustlikeClient.Network
             }
         }
 
+        private void HandlePlayerDisconnect(byte[] data)
+        {
+            int playerId = System.BitConverter.ToInt32(data, 0);
+            
+            Debug.Log($"[NetworkManager] Player Disconnect: ID {playerId}");
+
+            if (_otherPlayers.TryGetValue(playerId, out GameObject player))
+            {
+                Debug.Log($"[NetworkManager] Destruindo player {player.name}");
+                Destroy(player);
+                _otherPlayers.Remove(playerId);
+            }
+        }
+
+        // ==================== STATS ====================
+
         private void HandleStatsUpdate(byte[] data)
         {
             var stats = StatsUpdatePacket.Deserialize(data);
@@ -494,69 +433,505 @@ namespace RustlikeClient.Network
             }
 
             Debug.Log("[NetworkManager] Mostrando tela de morte...");
-            StartCoroutine(AutoRespawn());
+            // TODO: Mostrar tela de morte se houver
         }
 
-        private IEnumerator AutoRespawn()
+        // ==================== INVENTÁRIO ====================
+
+        private void HandleInventoryUpdate(byte[] data)
         {
-            yield return new WaitForSeconds(5f);
+            Debug.Log("[NetworkManager] ========== INVENTORY UPDATE ==========");
             
-            Debug.Log("[NetworkManager] Solicitando respawn...");
-            SendRespawnAsync();
+            var inventoryPacket = InventoryUpdatePacket.Deserialize(data);
+            Debug.Log($"[NetworkManager] Recebido inventário com {inventoryPacket.Slots.Count} itens");
+
+            if (UI.InventoryManager.Instance != null)
+            {
+                UI.InventoryManager.Instance.UpdateInventory(inventoryPacket);
+            }
+            else
+            {
+                Debug.LogError("[NetworkManager] InventoryManager não encontrado!");
+            }
         }
 
-        private async void SendRespawnAsync()
+        // ==================== GATHERING ====================
+
+        private void HandleResourcesSync(byte[] data)
+        {
+            Debug.Log("[NetworkManager] ========== RESOURCES SYNC ==========");
+            
+            var packet = ResourcesSyncPacket.Deserialize(data);
+            Debug.Log($"[NetworkManager] Recebido {packet.Resources.Count} recursos do servidor");
+
+            if (World.ResourceManager.Instance != null)
+            {
+                World.ResourceManager.Instance.SpawnResources(packet.Resources);
+            }
+            else
+            {
+                Debug.LogError("[NetworkManager] ResourceManager não encontrado! Criando...");
+                
+                GameObject rmObj = new GameObject("ResourceManager");
+                DontDestroyOnLoad(rmObj);
+                rmObj.AddComponent<World.ResourceManager>();
+                
+                World.ResourceManager.Instance?.SpawnResources(packet.Resources);
+            }
+        }
+
+        private void HandleResourceUpdate(byte[] data)
+        {
+            var packet = ResourceUpdatePacket.Deserialize(data);
+
+            if (World.ResourceManager.Instance != null)
+            {
+                World.ResourceManager.Instance.UpdateResourceHealth(packet.ResourceId, packet.Health, packet.MaxHealth);
+            }
+        }
+
+        private void HandleResourceDestroyed(byte[] data)
+        {
+            var packet = ResourceDestroyedPacket.Deserialize(data);
+            
+            Debug.Log($"[NetworkManager] 💥 Recurso {packet.ResourceId} foi destruído");
+
+            if (World.ResourceManager.Instance != null)
+            {
+                World.ResourceManager.Instance.DestroyResource(packet.ResourceId);
+            }
+        }
+
+        private void HandleResourceRespawn(byte[] data)
+        {
+            var packet = ResourceRespawnPacket.Deserialize(data);
+            
+            Debug.Log($"[NetworkManager] ♻️ Recurso {packet.ResourceId} respawnou");
+
+            if (World.ResourceManager.Instance != null)
+            {
+                World.ResourceManager.Instance.RespawnResource(packet.ResourceId, packet.Health, packet.MaxHealth);
+            }
+        }
+
+        private void HandleGatherResult(byte[] data)
+        {
+            var packet = GatherResultPacket.Deserialize(data);
+            
+            Debug.Log($"[NetworkManager] ✅ Recursos coletados: Wood={packet.WoodGained}, Stone={packet.StoneGained}, Metal={packet.MetalGained}, Sulfur={packet.SulfurGained}");
+
+            if (_myPlayer != null)
+            {
+                var gatheringSystem = _myPlayer.GetComponent<Player.GatheringSystem>();
+                if (gatheringSystem != null)
+                {
+                    gatheringSystem.ShowGatherResult(
+                        packet.WoodGained,
+                        packet.StoneGained,
+                        packet.MetalGained,
+                        packet.SulfurGained
+                    );
+                }
+            }
+        }
+
+        // ==================== CRAFTING ====================
+
+        private void HandleRecipesSync(byte[] data)
+        {
+            Debug.Log("[NetworkManager] ========== RECIPES SYNC ==========");
+            
+            var packet = RecipesSyncPacket.Deserialize(data);
+            Debug.Log($"[NetworkManager] Recebido {packet.Recipes.Count} receitas do servidor");
+
+            var recipes = new List<Crafting.CraftingRecipeData>();
+
+            foreach (var recipeData in packet.Recipes)
+            {
+                var recipe = new Crafting.CraftingRecipeData
+                {
+                    id = recipeData.Id,
+                    recipeName = recipeData.Name,
+                    resultItemId = recipeData.ResultItemId,
+                    resultQuantity = recipeData.ResultQuantity,
+                    craftingTime = recipeData.CraftingTime,
+                    requiredWorkbench = recipeData.RequiredWorkbench
+                };
+
+                foreach (var ingredient in recipeData.Ingredients)
+                {
+                    recipe.ingredients.Add(new Crafting.IngredientData
+                    {
+                        itemId = ingredient.ItemId,
+                        quantity = ingredient.Quantity
+                    });
+                }
+
+                recipes.Add(recipe);
+            }
+
+            if (Crafting.CraftingManager.Instance != null)
+            {
+                Crafting.CraftingManager.Instance.LoadRecipes(recipes);
+                Debug.Log($"[NetworkManager] ✅ {recipes.Count} receitas carregadas no CraftingManager");
+            }
+            else
+            {
+                Debug.LogError("[NetworkManager] CraftingManager não encontrado!");
+            }
+        }
+
+        private void HandleCraftStarted(byte[] data)
+        {
+            var packet = CraftStartedPacket.Deserialize(data);
+            
+            Debug.Log($"[NetworkManager] Crafting iniciado: Recipe {packet.RecipeId} ({packet.Duration}s) - {(packet.Success ? "SUCCESS" : "FAILED")}");
+
+            if (Crafting.CraftingManager.Instance != null)
+            {
+                Crafting.CraftingManager.Instance.OnCraftStartedResponse(
+                    packet.RecipeId,
+                    packet.Duration,
+                    packet.Success,
+                    packet.Message
+                );
+            }
+        }
+
+        private void HandleCraftComplete(byte[] data)
+        {
+            var packet = CraftCompletePacket.Deserialize(data);
+            
+            Debug.Log($"[NetworkManager] ✅ Crafting completo! Recipe {packet.RecipeId} -> {packet.ResultQuantity}x Item {packet.ResultItemId}");
+
+            if (Crafting.CraftingManager.Instance != null)
+            {
+                Crafting.CraftingManager.Instance.OnCraftCompleted(
+                    packet.RecipeId,
+                    packet.ResultItemId,
+                    packet.ResultQuantity
+                );
+            }
+        }
+
+        private void HandleCraftQueueUpdate(byte[] data)
+        {
+            var packet = CraftQueueUpdatePacket.Deserialize(data);
+
+            var queueItems = new List<Crafting.CraftQueueItemData>();
+
+            foreach (var item in packet.QueueItems)
+            {
+                queueItems.Add(new Crafting.CraftQueueItemData
+                {
+                    recipeId = item.RecipeId,
+                    progress = item.Progress,
+                    remainingTime = item.RemainingTime
+                });
+            }
+
+            if (Crafting.CraftingManager.Instance != null)
+            {
+                Crafting.CraftingManager.Instance.UpdateQueue(queueItems);
+            }
+        }
+
+        // ==================== ⭐ COMBATE ====================
+
+        /// <summary>
+        /// Handle de resultado de ataque
+        /// </summary>
+        private void HandleAttackResult(byte[] data)
+        {
+            var packet = AttackResultPacket.Deserialize(data);
+            
+            Debug.Log($"[NetworkManager] ⚔️ Attack Result: {(packet.Success ? "HIT" : "MISS")} - {packet.Message}");
+
+            if (packet.Success)
+            {
+                Debug.Log($"  → Damage: {packet.DamageDealt:F1}");
+                Debug.Log($"  → Killed: {packet.WasKilled}");
+                Debug.Log($"  → Hitbox: {packet.Hitbox}");
+
+                // Mostra hitmarker
+                if (UI.CombatUI.Instance != null)
+                {
+                    bool isHeadshot = packet.Hitbox == 1; // Head = 1
+                    UI.CombatUI.Instance.ShowHitmarker(isHeadshot);
+                }
+            }
+
+            // Atualiza munição se for ranged
+            if (packet.RemainingAmmo >= 0)
+            {
+                Debug.Log($"  → Remaining Ammo: {packet.RemainingAmmo}");
+                // TODO: Atualizar UI de munição
+            }
+        }
+
+        /// <summary>
+        /// Handle quando VOCÊ toma dano
+        /// </summary>
+        private void HandleTakeDamageNotify(byte[] data)
+        {
+            var packet = TakeDamageNotifyPacket.Deserialize(data);
+            
+            Debug.LogWarning($"[NetworkManager] 💥 VOCÊ TOMOU DANO!");
+            Debug.LogWarning($"  → Attacker ID: {packet.AttackerId}");
+            Debug.LogWarning($"  → Damage: {packet.Damage:F1}");
+            Debug.LogWarning($"  → Type: {packet.DamageType}");
+            Debug.LogWarning($"  → Hitbox: {packet.Hitbox}");
+
+            // Efeito visual de dano
+            if (UI.StatsUI.Instance != null)
+            {
+                float intensity = Mathf.Clamp01(packet.Damage / 100f);
+                UI.StatsUI.Instance.ShowDamageEffect(intensity);
+            }
+
+            // Som de dano
+            // TODO: Tocar som de impacto
+
+            // Número de dano flutuante
+            if (UI.CombatUI.Instance != null && _myPlayer != null)
+            {
+                bool isCritical = packet.Hitbox == 1; // Head = 1
+                UI.CombatUI.Instance.ShowDamageNumber(
+                    _myPlayer.transform.position + Vector3.up * 2f,
+                    packet.Damage,
+                    isCritical
+                );
+            }
+        }
+
+        /// <summary>
+        /// Handle quando alguém é morto (kill feed)
+        /// </summary>
+        private void HandlePlayerKilled(byte[] data)
+        {
+            var packet = PlayerKilledPacket.Deserialize(data);
+            
+            Debug.Log($"[NetworkManager] ☠️ KILL FEED:");
+            Debug.Log($"  {packet.KillerName} [{packet.WeaponUsed}] {packet.VictimId}");
+
+            bool isHeadshot = packet.Hitbox == 1;
+
+            // Atualiza kill feed na UI
+            if (UI.CombatUI.Instance != null)
+            {
+                string victimName = GetPlayerName(packet.VictimId);
+                UI.CombatUI.Instance.AddKillFeedEntry(
+                    packet.KillerName,
+                    victimName,
+                    packet.WeaponUsed,
+                    isHeadshot
+                );
+            }
+
+            // Se você foi morto
+            if (packet.VictimId == _myPlayerId)
+            {
+                Debug.LogError("[NetworkManager] 💀 VOCÊ FOI MORTO!");
+                ShowDeathScreen(packet.KillerName, packet.WeaponUsed, packet.Distance, isHeadshot);
+            }
+        }
+
+        /// <summary>
+        /// Mostra tela de morte
+        /// </summary>
+        private void ShowDeathScreen(string killerName, string weaponUsed, float distance, bool wasHeadshot)
+        {
+            // Desabilita controles
+            if (_myPlayer != null)
+            {
+                var controller = _myPlayer.GetComponent<Player.PlayerController>();
+                if (controller != null)
+                {
+                    controller.enabled = false;
+                }
+            }
+
+            // Mostra tela de morte
+            var deathScreen = FindObjectOfType<Combat.UI.DeathScreen>();
+            if (deathScreen != null)
+            {
+                deathScreen.ShowDeathScreen(killerName, weaponUsed, distance, wasHeadshot);
+            }
+        }
+
+        /// <summary>
+        /// Handle de resposta de respawn
+        /// </summary>
+        private void HandleRespawnResponse(byte[] data)
+        {
+            var packet = RespawnResponsePacket.Deserialize(data);
+            
+            Debug.Log($"[NetworkManager] Respawn Response: {(packet.Success ? "SUCCESS" : "FAILED")}");
+
+            if (packet.Success)
+            {
+                Debug.Log($"  → Spawn Position: ({packet.SpawnX}, {packet.SpawnY}, {packet.SpawnZ})");
+
+                // Move player
+                if (_myPlayer != null)
+                {
+                    _myPlayer.transform.position = new Vector3(packet.SpawnX, packet.SpawnY, packet.SpawnZ);
+
+                    // Reabilita controles
+                    var controller = _myPlayer.GetComponent<Player.PlayerController>();
+                    if (controller != null)
+                    {
+                        controller.enabled = true;
+                    }
+                }
+
+                // Esconde tela de morte
+                var deathScreen = FindObjectOfType<Combat.UI.DeathScreen>();
+                if (deathScreen != null)
+                {
+                    deathScreen.HideDeathScreen();
+                }
+
+                // Mostra UI de stats
+                if (UI.StatsUI.Instance != null)
+                {
+                    UI.StatsUI.Instance.Show();
+                }
+            }
+            else
+            {
+                Debug.LogError($"[NetworkManager] Respawn falhou: {packet.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle de atualização de estado da arma
+        /// </summary>
+        private void HandleWeaponStateUpdate(byte[] data)
+        {
+            var packet = WeaponStateUpdatePacket.Deserialize(data);
+            
+            Debug.Log($"[NetworkManager] Weapon State Update:");
+            Debug.Log($"  → Weapon: {packet.WeaponItemId}");
+            Debug.Log($"  → Ammo: {packet.CurrentAmmo}/{packet.ReserveAmmo}");
+            Debug.Log($"  → Reloading: {packet.IsReloading}");
+
+            // TODO: Atualizar WeaponManager se existir
+        }
+
+        // ==================== SEND METHODS (COMBATE) ====================
+
+        /// <summary>
+        /// Envia ataque melee para servidor
+        /// </summary>
+        public async void SendMeleeAttack(int targetPlayerId, int weaponItemId, byte hitbox, Vector3 direction)
+        {
+            var packet = new MeleeAttackPacket
+            {
+                TargetPlayerId = targetPlayerId,
+                WeaponItemId = weaponItemId,
+                Hitbox = hitbox,
+                DirectionX = direction.x,
+                DirectionY = direction.y,
+                DirectionZ = direction.z
+            };
+
+            await _networking.SendPacketAsync(
+                PacketType.MeleeAttack,
+                packet.Serialize(),
+                DeliveryMethod.ReliableOrdered
+            );
+
+            Debug.Log($"[NetworkManager] 📤 Enviado: MeleeAttack → Player {targetPlayerId}");
+        }
+
+        /// <summary>
+        /// Envia ataque ranged para servidor
+        /// </summary>
+        public async void SendRangedAttack(int targetPlayerId, int weaponItemId, byte hitbox, Vector3 shootDirection, float distance)
+        {
+            var packet = new RangedAttackPacket
+            {
+                TargetPlayerId = targetPlayerId,
+                WeaponItemId = weaponItemId,
+                Hitbox = hitbox,
+                ShootDirectionX = shootDirection.x,
+                ShootDirectionY = shootDirection.y,
+                ShootDirectionZ = shootDirection.z,
+                Distance = distance
+            };
+
+            await _networking.SendPacketAsync(
+                PacketType.RangedAttack,
+                packet.Serialize(),
+                DeliveryMethod.ReliableOrdered
+            );
+
+            Debug.Log($"[NetworkManager] 📤 Enviado: RangedAttack → Player {targetPlayerId}");
+        }
+
+        /// <summary>
+        /// Envia equipar arma para servidor
+        /// </summary>
+        public async void SendWeaponEquip(int weaponItemId, int slotIndex)
+        {
+            var packet = new WeaponEquipPacket
+            {
+                WeaponItemId = weaponItemId,
+                SlotIndex = slotIndex
+            };
+
+            await _networking.SendPacketAsync(
+                PacketType.WeaponEquip,
+                packet.Serialize(),
+                DeliveryMethod.ReliableOrdered
+            );
+
+            Debug.Log($"[NetworkManager] 📤 Enviado: WeaponEquip → Weapon {weaponItemId}");
+        }
+
+        /// <summary>
+        /// Envia reload para servidor
+        /// </summary>
+        public async void SendWeaponReload(int weaponItemId)
+        {
+            var packet = new WeaponReloadPacket
+            {
+                WeaponItemId = weaponItemId
+            };
+
+            await _networking.SendPacketAsync(
+                PacketType.WeaponReload,
+                packet.Serialize(),
+                DeliveryMethod.ReliableOrdered
+            );
+
+            Debug.Log($"[NetworkManager] 📤 Enviado: WeaponReload");
+        }
+
+        /// <summary>
+        /// Envia pedido de respawn para servidor
+        /// </summary>
+        public async void SendRespawnRequest()
         {
             await _networking.SendPacketAsync(
-                PacketType.PlayerRespawn, 
+                PacketType.RespawnRequest,
                 new byte[0],
                 DeliveryMethod.ReliableOrdered
             );
+
+            Debug.Log($"[NetworkManager] 📤 Enviado: RespawnRequest");
         }
 
-        private void HandlePlayerDisconnect(byte[] data)
+        // ==================== OUTROS SEND METHODS ====================
+
+        private async void SendClientReadyAsync()
         {
-            int playerId = System.BitConverter.ToInt32(data, 0);
-            
-            Debug.Log($"[NetworkManager] Player Disconnect: ID {playerId}");
-
-            if (_otherPlayers.TryGetValue(playerId, out GameObject player))
-            {
-                Debug.Log($"[NetworkManager] Destruindo player {player.name}");
-                Destroy(player);
-                _otherPlayers.Remove(playerId);
-            }
-        }
-
-        private void HandleDisconnect()
-        {
-            Debug.LogWarning("[NetworkManager] ========== DESCONECTADO DO SERVIDOR ==========");
-            
-            foreach (var player in _otherPlayers.Values)
-            {
-                if (player != null) Destroy(player);
-            }
-            _otherPlayers.Clear();
-
-            if (_myPlayer != null) Destroy(_myPlayer);
-
-            // Limpa recursos
-            if (World.ResourceManager.Instance != null)
-            {
-                World.ResourceManager.Instance.ClearAllResources();
-            }
-
-            if (UI.LoadingScreen.Instance != null)
-            {
-                UI.LoadingScreen.Instance.Hide();
-            }
-
-            if (UI.StatsUI.Instance != null)
-            {
-                UI.StatsUI.Instance.Hide();
-            }
-
-            SceneManager.LoadScene("MainMenu");
+            await _networking.SendPacketAsync(
+                PacketType.ClientReady, 
+                new byte[0],
+                DeliveryMethod.ReliableOrdered
+            );
         }
 
         public void SendPlayerMovement(Vector3 position, Vector2 rotation)
@@ -598,6 +973,60 @@ namespace RustlikeClient.Network
             );
         }
 
+        // ==================== DISCONNECT ====================
+
+        private void HandleDisconnect()
+        {
+            Debug.LogWarning("[NetworkManager] ========== DESCONECTADO DO SERVIDOR ==========");
+            
+            foreach (var player in _otherPlayers.Values)
+            {
+                if (player != null) Destroy(player);
+            }
+            _otherPlayers.Clear();
+
+            if (_myPlayer != null) Destroy(_myPlayer);
+
+            if (World.ResourceManager.Instance != null)
+            {
+                World.ResourceManager.Instance.ClearAllResources();
+            }
+
+            if (UI.LoadingScreen.Instance != null)
+            {
+                UI.LoadingScreen.Instance.Hide();
+            }
+
+            if (UI.StatsUI.Instance != null)
+            {
+                UI.StatsUI.Instance.Hide();
+            }
+
+            SceneManager.LoadScene("MainMenu");
+        }
+
+        // ==================== HELPERS ====================
+
+        /// <summary>
+        /// Pega nome de um player pelo ID
+        /// </summary>
+        private string GetPlayerName(int playerId)
+        {
+            if (playerId == _myPlayerId)
+            {
+                return "You";
+            }
+
+            if (_otherPlayers.TryGetValue(playerId, out GameObject player))
+            {
+                return player.name;
+            }
+
+            return $"Player {playerId}";
+        }
+
+        // ==================== GETTERS ====================
+
         public int GetMyPlayerId() => _myPlayerId;
         public bool IsConnected() => _networking.IsConnected();
         public int GetOtherPlayersCount() => _otherPlayers.Count;
@@ -608,12 +1037,14 @@ namespace RustlikeClient.Network
             await _networking.SendPacketAsync(type, data, method);
         }
 
+        // ==================== DEBUG ====================
+
         private void Update()
         {
             if (Input.GetKeyDown(KeyCode.F1))
             {
                 Debug.Log("========================================");
-                Debug.Log("========== NETWORK STATUS (LiteNetLib + Gathering) ==========");
+                Debug.Log("========== NETWORK STATUS (COMPLETO) ==========");
                 Debug.Log($"My Player ID: {_myPlayerId}");
                 Debug.Log($"Connected: {IsConnected()}");
                 Debug.Log($"Ping: {GetPing()}ms");
@@ -621,127 +1052,15 @@ namespace RustlikeClient.Network
                 
                 if (World.ResourceManager.Instance != null)
                 {
-                    Debug.Log($"Resources Loaded: {World.ResourceManager.Instance.CountResourcesByType(World.ResourceType.Tree) + World.ResourceManager.Instance.CountResourcesByType(World.ResourceType.Stone) + World.ResourceManager.Instance.CountResourcesByType(World.ResourceType.MetalOre) + World.ResourceManager.Instance.CountResourcesByType(World.ResourceType.SulfurOre)}");
+                    int totalResources = World.ResourceManager.Instance.CountResourcesByType(World.ResourceType.Tree) +
+                                       World.ResourceManager.Instance.CountResourcesByType(World.ResourceType.Stone) +
+                                       World.ResourceManager.Instance.CountResourcesByType(World.ResourceType.MetalOre) +
+                                       World.ResourceManager.Instance.CountResourcesByType(World.ResourceType.SulfurOre);
+                    Debug.Log($"Resources Loaded: {totalResources}");
                 }
                 
                 Debug.Log("========================================");
             }
         }
-    
-/// <summary>
-/// ⭐ NOVO: Handle de sincronização de receitas
-/// </summary>
-private void HandleRecipesSync(byte[] data)
-{
-    Debug.Log("[NetworkManager] ========== RECIPES SYNC ==========");
-    
-    var packet = RecipesSyncPacket.Deserialize(data);
-    Debug.Log($"[NetworkManager] Recebido {packet.Recipes.Count} receitas do servidor");
-
-    // Converte para formato do cliente
-    var recipes = new List<Crafting.CraftingRecipeData>();
-
-    foreach (var recipeData in packet.Recipes)
-    {
-        var recipe = new Crafting.CraftingRecipeData
-        {
-            id = recipeData.Id,
-            recipeName = recipeData.Name,
-            resultItemId = recipeData.ResultItemId,
-            resultQuantity = recipeData.ResultQuantity,
-            craftingTime = recipeData.CraftingTime,
-            requiredWorkbench = recipeData.RequiredWorkbench
-        };
-
-        foreach (var ingredient in recipeData.Ingredients)
-        {
-            recipe.ingredients.Add(new Crafting.IngredientData
-            {
-                itemId = ingredient.ItemId,
-                quantity = ingredient.Quantity
-            });
-        }
-
-        recipes.Add(recipe);
-    }
-
-    // Envia para CraftingManager
-    if (Crafting.CraftingManager.Instance != null)
-    {
-        Crafting.CraftingManager.Instance.LoadRecipes(recipes);
-        Debug.Log($"[NetworkManager] ✅ {recipes.Count} receitas carregadas no CraftingManager");
-    }
-    else
-    {
-        Debug.LogError("[NetworkManager] CraftingManager não encontrado!");
     }
 }
-
-/// <summary>
-/// ⭐ NOVO: Handle de crafting iniciado
-/// </summary>
-private void HandleCraftStarted(byte[] data)
-{
-    var packet = CraftStartedPacket.Deserialize(data);
-    
-    Debug.Log($"[NetworkManager] Crafting iniciado: Recipe {packet.RecipeId} ({packet.Duration}s) - {(packet.Success ? "SUCCESS" : "FAILED")}");
-
-    if (Crafting.CraftingManager.Instance != null)
-    {
-        Crafting.CraftingManager.Instance.OnCraftStartedResponse(
-            packet.RecipeId,
-            packet.Duration,
-            packet.Success,
-            packet.Message
-        );
-    }
-}
-
-/// <summary>
-/// ⭐ NOVO: Handle de crafting completo
-/// </summary>
-private void HandleCraftComplete(byte[] data)
-{
-    var packet = CraftCompletePacket.Deserialize(data);
-    
-    Debug.Log($"[NetworkManager] ✅ Crafting completo! Recipe {packet.RecipeId} -> {packet.ResultQuantity}x Item {packet.ResultItemId}");
-
-    if (Crafting.CraftingManager.Instance != null)
-    {
-        Crafting.CraftingManager.Instance.OnCraftCompleted(
-            packet.RecipeId,
-            packet.ResultItemId,
-            packet.ResultQuantity
-        );
-    }
-}
-
-/// <summary>
-/// ⭐ NOVO: Handle de atualização da fila de crafting
-/// </summary>
-private void HandleCraftQueueUpdate(byte[] data)
-{
-    var packet = CraftQueueUpdatePacket.Deserialize(data);
-
-    // Converte para formato do cliente
-    var queueItems = new List<Crafting.CraftQueueItemData>();
-
-    foreach (var item in packet.QueueItems)
-    {
-        queueItems.Add(new Crafting.CraftQueueItemData
-        {
-            recipeId = item.RecipeId,
-            progress = item.Progress,
-            remainingTime = item.RemainingTime
-        });
-    }
-
-    // Envia para CraftingManager
-    if (Crafting.CraftingManager.Instance != null)
-    {
-        Crafting.CraftingManager.Instance.UpdateQueue(queueItems);
-    }
-}
-}
-}
-
