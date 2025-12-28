@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections;
-using RustlikeGame.Network;
+using RustlikeClient.Network;
 
 namespace RustlikeGame.Combat.UI
 {
