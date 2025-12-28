@@ -1,5 +1,5 @@
 using UnityEngine;
-using RustlikeGame.Network;
+using RustlikeClient.Network;
 
 namespace RustlikeGame.Combat
 {
