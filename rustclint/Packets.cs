@@ -30,21 +30,34 @@ namespace RustlikeClient.Network
         ItemDrop = 16,
         HotbarSelect = 17,
         
-        // ⭐ NOVO: Sistema de Gathering/Recursos
+        // Sistema de Gathering/Recursos
         ResourcesSync = 18,
         ResourceHit = 19,
         ResourceUpdate = 20,
         ResourceDestroyed = 21,
         ResourceRespawn = 22,
         GatherResult = 23,
-		
-		// Sistema de Crafting
-		RecipesSync = 24,
-		CraftRequest = 25,
-		CraftStarted = 26,
-		CraftComplete = 27,
-		CraftCancel = 28,
-		CraftQueueUpdate = 29
+        
+        // Sistema de Crafting
+        RecipesSync = 24,
+        CraftRequest = 25,
+        CraftStarted = 26,
+        CraftComplete = 27,
+        CraftCancel = 28,
+        CraftQueueUpdate = 29,
+        
+        // ⭐ Sistema de Combate
+        MeleeAttack = 30,
+        RangedAttack = 31,
+        AttackResult = 32,
+        WeaponEquip = 33,
+        WeaponReload = 34,
+        TakeDamageNotify = 35,
+        PlayerKilled = 36,
+        RespawnRequest = 37,
+        RespawnResponse = 38,
+        WeaponStateUpdate = 39,
+        CombatLog = 40
     }
 
     public class Packet
@@ -79,6 +92,8 @@ namespace RustlikeClient.Network
             return new Packet(type, packetData);
         }
     }
+
+    // ==================== CONEXÃO ====================
 
     [Serializable]
     public class ConnectionRequestPacket
@@ -128,6 +143,8 @@ namespace RustlikeClient.Network
             };
         }
     }
+
+    // ==================== MOVIMENTO ====================
 
     [Serializable]
     public class PlayerMovementPacket
@@ -202,6 +219,8 @@ namespace RustlikeClient.Network
         }
     }
 
+    // ==================== STATS ====================
+
     [Serializable]
     public class StatsUpdatePacket
     {
@@ -261,6 +280,8 @@ namespace RustlikeClient.Network
             };
         }
     }
+
+    // ==================== INVENTÁRIO ====================
 
     [Serializable]
     public class InventoryUpdatePacket
@@ -367,7 +388,7 @@ namespace RustlikeClient.Network
         }
     }
 
-    // ⭐ NOVO: Pacotes de Gathering/Recursos
+    // ==================== RECURSOS (GATHERING) ====================
 
     [Serializable]
     public class ResourcesSyncPacket
@@ -429,7 +450,7 @@ namespace RustlikeClient.Network
     public class ResourceData
     {
         public int Id;
-        public byte Type; // 0=Tree, 1=Stone, 2=Metal, 3=Sulfur
+        public byte Type;
         public float PosX;
         public float PosY;
         public float PosZ;
@@ -442,7 +463,7 @@ namespace RustlikeClient.Network
     {
         public int ResourceId;
         public float Damage;
-        public int ToolType; // 0=Mão, 1=Machado, 2=Picareta
+        public int ToolType;
 
         public byte[] Serialize()
         {
@@ -566,295 +587,631 @@ namespace RustlikeClient.Network
             };
         }
     }
-	/// <summary>
-/// Cliente solicita crafting de uma receita
-/// </summary>
-[Serializable]
-public class CraftRequestPacket
-{
-    public int RecipeId;
 
-    public byte[] Serialize()
-    {
-        return BitConverter.GetBytes(RecipeId);
-    }
+    // ==================== CRAFTING ====================
 
-    public static CraftRequestPacket Deserialize(byte[] data)
+    [Serializable]
+    public class RecipesSyncPacket
     {
-        return new CraftRequestPacket
+        public List<RecipeData> Recipes;
+
+        public RecipesSyncPacket()
         {
-            RecipeId = BitConverter.ToInt32(data, 0)
-        };
-    }
-}
-
-/// <summary>
-/// Servidor confirma início do crafting
-/// </summary>
-[Serializable]
-public class CraftStartedPacket
-{
-    public int RecipeId;
-    public float Duration;
-    public bool Success;
-    public string Message;
-
-    public byte[] Serialize()
-    {
-        byte[] messageBytes = Encoding.UTF8.GetBytes(Message ?? "");
-        byte[] data = new byte[13 + messageBytes.Length];
-        
-        BitConverter.GetBytes(RecipeId).CopyTo(data, 0);
-        BitConverter.GetBytes(Duration).CopyTo(data, 4);
-        data[8] = Success ? (byte)1 : (byte)0;
-        BitConverter.GetBytes(messageBytes.Length).CopyTo(data, 9);
-        messageBytes.CopyTo(data, 13);
-        
-        return data;
-    }
-
-    public static CraftStartedPacket Deserialize(byte[] data)
-    {
-        int messageLength = BitConverter.ToInt32(data, 9);
-        return new CraftStartedPacket
-        {
-            RecipeId = BitConverter.ToInt32(data, 0),
-            Duration = BitConverter.ToSingle(data, 4),
-            Success = data[8] == 1,
-            Message = messageLength > 0 ? Encoding.UTF8.GetString(data, 13, messageLength) : ""
-        };
-    }
-}
-
-/// <summary>
-/// Servidor notifica que crafting foi completo
-/// </summary>
-[Serializable]
-public class CraftCompletePacket
-{
-    public int RecipeId;
-    public int ResultItemId;
-    public int ResultQuantity;
-
-    public byte[] Serialize()
-    {
-        byte[] data = new byte[12];
-        BitConverter.GetBytes(RecipeId).CopyTo(data, 0);
-        BitConverter.GetBytes(ResultItemId).CopyTo(data, 4);
-        BitConverter.GetBytes(ResultQuantity).CopyTo(data, 8);
-        return data;
-    }
-
-    public static CraftCompletePacket Deserialize(byte[] data)
-    {
-        return new CraftCompletePacket
-        {
-            RecipeId = BitConverter.ToInt32(data, 0),
-            ResultItemId = BitConverter.ToInt32(data, 4),
-            ResultQuantity = BitConverter.ToInt32(data, 8)
-        };
-    }
-}
-
-/// <summary>
-/// Cliente solicita cancelamento de crafting
-/// </summary>
-[Serializable]
-public class CraftCancelPacket
-{
-    public int QueueIndex;
-
-    public byte[] Serialize()
-    {
-        return BitConverter.GetBytes(QueueIndex);
-    }
-
-    public static CraftCancelPacket Deserialize(byte[] data)
-    {
-        return new CraftCancelPacket
-        {
-            QueueIndex = BitConverter.ToInt32(data, 0)
-        };
-    }
-}
-
-/// <summary>
-/// Servidor envia sincronização de receitas
-/// </summary>
-[Serializable]
-public class RecipesSyncPacket
-{
-    public List<RecipeData> Recipes;
-
-    public RecipesSyncPacket()
-    {
-        Recipes = new List<RecipeData>();
-    }
-
-    public byte[] Serialize()
-    {
-        List<byte> data = new List<byte>();
-        data.AddRange(BitConverter.GetBytes(Recipes.Count));
-
-        foreach (var recipe in Recipes)
-        {
-            data.AddRange(BitConverter.GetBytes(recipe.Id));
-            
-            byte[] nameBytes = Encoding.UTF8.GetBytes(recipe.Name);
-            data.AddRange(BitConverter.GetBytes(nameBytes.Length));
-            data.AddRange(nameBytes);
-            
-            data.AddRange(BitConverter.GetBytes(recipe.ResultItemId));
-            data.AddRange(BitConverter.GetBytes(recipe.ResultQuantity));
-            data.AddRange(BitConverter.GetBytes(recipe.CraftingTime));
-            data.AddRange(BitConverter.GetBytes(recipe.RequiredWorkbench));
-            
-            data.AddRange(BitConverter.GetBytes(recipe.Ingredients.Count));
-            foreach (var ingredient in recipe.Ingredients)
-            {
-                data.AddRange(BitConverter.GetBytes(ingredient.ItemId));
-                data.AddRange(BitConverter.GetBytes(ingredient.Quantity));
-            }
+            Recipes = new List<RecipeData>();
         }
 
-        return data.ToArray();
-    }
-
-    public static RecipesSyncPacket Deserialize(byte[] data)
-    {
-        var packet = new RecipesSyncPacket();
-        int offset = 0;
-
-        int recipeCount = BitConverter.ToInt32(data, offset);
-        offset += 4;
-
-        for (int i = 0; i < recipeCount; i++)
+        public byte[] Serialize()
         {
-            var recipe = new RecipeData();
-            
-            recipe.Id = BitConverter.ToInt32(data, offset);
-            offset += 4;
-            
-            int nameLength = BitConverter.ToInt32(data, offset);
-            offset += 4;
-            recipe.Name = Encoding.UTF8.GetString(data, offset, nameLength);
-            offset += nameLength;
-            
-            recipe.ResultItemId = BitConverter.ToInt32(data, offset);
-            offset += 4;
-            recipe.ResultQuantity = BitConverter.ToInt32(data, offset);
-            offset += 4;
-            
-            recipe.CraftingTime = BitConverter.ToSingle(data, offset);
-            offset += 4;
-            
-            recipe.RequiredWorkbench = BitConverter.ToInt32(data, offset);
-            offset += 4;
-            
-            int ingredientCount = BitConverter.ToInt32(data, offset);
-            offset += 4;
-            
-            for (int j = 0; j < ingredientCount; j++)
+            List<byte> data = new List<byte>();
+            data.AddRange(BitConverter.GetBytes(Recipes.Count));
+
+            foreach (var recipe in Recipes)
             {
-                int itemId = BitConverter.ToInt32(data, offset);
-                offset += 4;
-                int quantity = BitConverter.ToInt32(data, offset);
+                data.AddRange(BitConverter.GetBytes(recipe.Id));
+                
+                byte[] nameBytes = Encoding.UTF8.GetBytes(recipe.Name);
+                data.AddRange(BitConverter.GetBytes(nameBytes.Length));
+                data.AddRange(nameBytes);
+                
+                data.AddRange(BitConverter.GetBytes(recipe.ResultItemId));
+                data.AddRange(BitConverter.GetBytes(recipe.ResultQuantity));
+                data.AddRange(BitConverter.GetBytes(recipe.CraftingTime));
+                data.AddRange(BitConverter.GetBytes(recipe.RequiredWorkbench));
+                
+                data.AddRange(BitConverter.GetBytes(recipe.Ingredients.Count));
+                foreach (var ingredient in recipe.Ingredients)
+                {
+                    data.AddRange(BitConverter.GetBytes(ingredient.ItemId));
+                    data.AddRange(BitConverter.GetBytes(ingredient.Quantity));
+                }
+            }
+
+            return data.ToArray();
+        }
+
+        public static RecipesSyncPacket Deserialize(byte[] data)
+        {
+            var packet = new RecipesSyncPacket();
+            int offset = 0;
+
+            int recipeCount = BitConverter.ToInt32(data, offset);
+            offset += 4;
+
+            for (int i = 0; i < recipeCount; i++)
+            {
+                var recipe = new RecipeData();
+                
+                recipe.Id = BitConverter.ToInt32(data, offset);
                 offset += 4;
                 
-                recipe.Ingredients.Add(new IngredientData
+                int nameLength = BitConverter.ToInt32(data, offset);
+                offset += 4;
+                recipe.Name = Encoding.UTF8.GetString(data, offset, nameLength);
+                offset += nameLength;
+                
+                recipe.ResultItemId = BitConverter.ToInt32(data, offset);
+                offset += 4;
+                recipe.ResultQuantity = BitConverter.ToInt32(data, offset);
+                offset += 4;
+                
+                recipe.CraftingTime = BitConverter.ToSingle(data, offset);
+                offset += 4;
+                
+                recipe.RequiredWorkbench = BitConverter.ToInt32(data, offset);
+                offset += 4;
+                
+                int ingredientCount = BitConverter.ToInt32(data, offset);
+                offset += 4;
+                
+                for (int j = 0; j < ingredientCount; j++)
                 {
-                    ItemId = itemId,
-                    Quantity = quantity
-                });
+                    int itemId = BitConverter.ToInt32(data, offset);
+                    offset += 4;
+                    int quantity = BitConverter.ToInt32(data, offset);
+                    offset += 4;
+                    
+                    recipe.Ingredients.Add(new IngredientData
+                    {
+                        ItemId = itemId,
+                        Quantity = quantity
+                    });
+                }
+                
+                packet.Recipes.Add(recipe);
             }
-            
-            packet.Recipes.Add(recipe);
+
+            return packet;
+        }
+    }
+
+    [Serializable]
+    public class RecipeData
+    {
+        public int Id;
+        public string Name;
+        public int ResultItemId;
+        public int ResultQuantity;
+        public float CraftingTime;
+        public int RequiredWorkbench;
+        public List<IngredientData> Ingredients;
+
+        public RecipeData()
+        {
+            Ingredients = new List<IngredientData>();
+        }
+    }
+
+    [Serializable]
+    public class IngredientData
+    {
+        public int ItemId;
+        public int Quantity;
+    }
+
+    [Serializable]
+    public class CraftRequestPacket
+    {
+        public int RecipeId;
+
+        public byte[] Serialize()
+        {
+            return BitConverter.GetBytes(RecipeId);
         }
 
-        return packet;
-    }
-}
-
-[Serializable]
-public class RecipeData
-{
-    public int Id;
-    public string Name;
-    public int ResultItemId;
-    public int ResultQuantity;
-    public float CraftingTime;
-    public int RequiredWorkbench;
-    public List<IngredientData> Ingredients;
-
-    public RecipeData()
-    {
-        Ingredients = new List<IngredientData>();
-    }
-}
-
-[Serializable]
-public class IngredientData
-{
-    public int ItemId;
-    public int Quantity;
-}
-
-/// <summary>
-/// Servidor envia atualização da fila de crafting
-/// </summary>
-[Serializable]
-public class CraftQueueUpdatePacket
-{
-    public List<CraftQueueItem> QueueItems;
-
-    public CraftQueueUpdatePacket()
-    {
-        QueueItems = new List<CraftQueueItem>();
-    }
-
-    public byte[] Serialize()
-    {
-        List<byte> data = new List<byte>();
-        data.AddRange(BitConverter.GetBytes(QueueItems.Count));
-
-        foreach (var item in QueueItems)
+        public static CraftRequestPacket Deserialize(byte[] data)
         {
-            data.AddRange(BitConverter.GetBytes(item.RecipeId));
-            data.AddRange(BitConverter.GetBytes(item.Progress));
-            data.AddRange(BitConverter.GetBytes(item.RemainingTime));
-        }
-
-        return data.ToArray();
-    }
-
-    public static CraftQueueUpdatePacket Deserialize(byte[] data)
-    {
-        var packet = new CraftQueueUpdatePacket();
-        int offset = 0;
-
-        int count = BitConverter.ToInt32(data, offset);
-        offset += 4;
-
-        for (int i = 0; i < count; i++)
-        {
-            packet.QueueItems.Add(new CraftQueueItem
+            return new CraftRequestPacket
             {
-                RecipeId = BitConverter.ToInt32(data, offset),
-                Progress = BitConverter.ToSingle(data, offset + 4),
-                RemainingTime = BitConverter.ToSingle(data, offset + 8)
-            });
-            offset += 12;
+                RecipeId = BitConverter.ToInt32(data, 0)
+            };
+        }
+    }
+
+    [Serializable]
+    public class CraftStartedPacket
+    {
+        public int RecipeId;
+        public float Duration;
+        public bool Success;
+        public string Message;
+
+        public byte[] Serialize()
+        {
+            byte[] messageBytes = Encoding.UTF8.GetBytes(Message ?? "");
+            byte[] data = new byte[13 + messageBytes.Length];
+            
+            BitConverter.GetBytes(RecipeId).CopyTo(data, 0);
+            BitConverter.GetBytes(Duration).CopyTo(data, 4);
+            data[8] = Success ? (byte)1 : (byte)0;
+            BitConverter.GetBytes(messageBytes.Length).CopyTo(data, 9);
+            messageBytes.CopyTo(data, 13);
+            
+            return data;
         }
 
-        return packet;
+        public static CraftStartedPacket Deserialize(byte[] data)
+        {
+            int messageLength = BitConverter.ToInt32(data, 9);
+            return new CraftStartedPacket
+            {
+                RecipeId = BitConverter.ToInt32(data, 0),
+                Duration = BitConverter.ToSingle(data, 4),
+                Success = data[8] == 1,
+                Message = messageLength > 0 ? Encoding.UTF8.GetString(data, 13, messageLength) : ""
+            };
+        }
     }
-}
 
-[Serializable]
-public class CraftQueueItem
-{
-    public int RecipeId;
-    public float Progress;
-    public float RemainingTime;
-}
+    [Serializable]
+    public class CraftCompletePacket
+    {
+        public int RecipeId;
+        public int ResultItemId;
+        public int ResultQuantity;
+
+        public byte[] Serialize()
+        {
+            byte[] data = new byte[12];
+            BitConverter.GetBytes(RecipeId).CopyTo(data, 0);
+            BitConverter.GetBytes(ResultItemId).CopyTo(data, 4);
+            BitConverter.GetBytes(ResultQuantity).CopyTo(data, 8);
+            return data;
+        }
+
+        public static CraftCompletePacket Deserialize(byte[] data)
+        {
+            return new CraftCompletePacket
+            {
+                RecipeId = BitConverter.ToInt32(data, 0),
+                ResultItemId = BitConverter.ToInt32(data, 4),
+                ResultQuantity = BitConverter.ToInt32(data, 8)
+            };
+        }
+    }
+
+    [Serializable]
+    public class CraftCancelPacket
+    {
+        public int QueueIndex;
+
+        public byte[] Serialize()
+        {
+            return BitConverter.GetBytes(QueueIndex);
+        }
+
+        public static CraftCancelPacket Deserialize(byte[] data)
+        {
+            return new CraftCancelPacket
+            {
+                QueueIndex = BitConverter.ToInt32(data, 0)
+            };
+        }
+    }
+
+    [Serializable]
+    public class CraftQueueUpdatePacket
+    {
+        public List<CraftQueueItem> QueueItems;
+
+        public CraftQueueUpdatePacket()
+        {
+            QueueItems = new List<CraftQueueItem>();
+        }
+
+        public byte[] Serialize()
+        {
+            List<byte> data = new List<byte>();
+            data.AddRange(BitConverter.GetBytes(QueueItems.Count));
+
+            foreach (var item in QueueItems)
+            {
+                data.AddRange(BitConverter.GetBytes(item.RecipeId));
+                data.AddRange(BitConverter.GetBytes(item.Progress));
+                data.AddRange(BitConverter.GetBytes(item.RemainingTime));
+            }
+
+            return data.ToArray();
+        }
+
+        public static CraftQueueUpdatePacket Deserialize(byte[] data)
+        {
+            var packet = new CraftQueueUpdatePacket();
+            int offset = 0;
+
+            int count = BitConverter.ToInt32(data, offset);
+            offset += 4;
+
+            for (int i = 0; i < count; i++)
+            {
+                packet.QueueItems.Add(new CraftQueueItem
+                {
+                    RecipeId = BitConverter.ToInt32(data, offset),
+                    Progress = BitConverter.ToSingle(data, offset + 4),
+                    RemainingTime = BitConverter.ToSingle(data, offset + 8)
+                });
+                offset += 12;
+            }
+
+            return packet;
+        }
+    }
+
+    [Serializable]
+    public class CraftQueueItem
+    {
+        public int RecipeId;
+        public float Progress;
+        public float RemainingTime;
+    }
+
+    // ==================== ⭐ COMBATE ====================
+
+    [Serializable]
+    public class MeleeAttackPacket
+    {
+        public int TargetPlayerId;
+        public int WeaponItemId;
+        public byte Hitbox;
+        public float DirectionX;
+        public float DirectionY;
+        public float DirectionZ;
+
+        public byte[] Serialize()
+        {
+            byte[] data = new byte[21];
+            BitConverter.GetBytes(TargetPlayerId).CopyTo(data, 0);
+            BitConverter.GetBytes(WeaponItemId).CopyTo(data, 4);
+            data[8] = Hitbox;
+            BitConverter.GetBytes(DirectionX).CopyTo(data, 9);
+            BitConverter.GetBytes(DirectionY).CopyTo(data, 13);
+            BitConverter.GetBytes(DirectionZ).CopyTo(data, 17);
+            return data;
+        }
+
+        public static MeleeAttackPacket Deserialize(byte[] data)
+        {
+            return new MeleeAttackPacket
+            {
+                TargetPlayerId = BitConverter.ToInt32(data, 0),
+                WeaponItemId = BitConverter.ToInt32(data, 4),
+                Hitbox = data[8],
+                DirectionX = BitConverter.ToSingle(data, 9),
+                DirectionY = BitConverter.ToSingle(data, 13),
+                DirectionZ = BitConverter.ToSingle(data, 17)
+            };
+        }
+    }
+
+    [Serializable]
+    public class RangedAttackPacket
+    {
+        public int TargetPlayerId;
+        public int WeaponItemId;
+        public byte Hitbox;
+        public float ShootDirectionX;
+        public float ShootDirectionY;
+        public float ShootDirectionZ;
+        public float Distance;
+
+        public byte[] Serialize()
+        {
+            byte[] data = new byte[25];
+            BitConverter.GetBytes(TargetPlayerId).CopyTo(data, 0);
+            BitConverter.GetBytes(WeaponItemId).CopyTo(data, 4);
+            data[8] = Hitbox;
+            BitConverter.GetBytes(ShootDirectionX).CopyTo(data, 9);
+            BitConverter.GetBytes(ShootDirectionY).CopyTo(data, 13);
+            BitConverter.GetBytes(ShootDirectionZ).CopyTo(data, 17);
+            BitConverter.GetBytes(Distance).CopyTo(data, 21);
+            return data;
+        }
+
+        public static RangedAttackPacket Deserialize(byte[] data)
+        {
+            return new RangedAttackPacket
+            {
+                TargetPlayerId = BitConverter.ToInt32(data, 0),
+                WeaponItemId = BitConverter.ToInt32(data, 4),
+                Hitbox = data[8],
+                ShootDirectionX = BitConverter.ToSingle(data, 9),
+                ShootDirectionY = BitConverter.ToSingle(data, 13),
+                ShootDirectionZ = BitConverter.ToSingle(data, 17),
+                Distance = BitConverter.ToSingle(data, 21)
+            };
+        }
+    }
+
+    [Serializable]
+    public class AttackResultPacket
+    {
+        public bool Success;
+        public string Message;
+        public float DamageDealt;
+        public bool WasKilled;
+        public byte Hitbox;
+        public float Distance;
+        public int RemainingAmmo;
+
+        public byte[] Serialize()
+        {
+            byte[] messageBytes = Encoding.UTF8.GetBytes(Message ?? "");
+            byte[] data = new byte[19 + messageBytes.Length];
+            
+            data[0] = Success ? (byte)1 : (byte)0;
+            
+            BitConverter.GetBytes(messageBytes.Length).CopyTo(data, 1);
+            messageBytes.CopyTo(data, 5);
+            
+            int offset = 5 + messageBytes.Length;
+            BitConverter.GetBytes(DamageDealt).CopyTo(data, offset);
+            data[offset + 4] = WasKilled ? (byte)1 : (byte)0;
+            data[offset + 5] = Hitbox;
+            BitConverter.GetBytes(Distance).CopyTo(data, offset + 6);
+            BitConverter.GetBytes(RemainingAmmo).CopyTo(data, offset + 10);
+            
+            return data;
+        }
+
+        public static AttackResultPacket Deserialize(byte[] data)
+        {
+            bool success = data[0] == 1;
+            
+            int messageLength = BitConverter.ToInt32(data, 1);
+            string message = messageLength > 0 ? Encoding.UTF8.GetString(data, 5, messageLength) : "";
+            
+            int offset = 5 + messageLength;
+            
+            return new AttackResultPacket
+            {
+                Success = success,
+                Message = message,
+                DamageDealt = BitConverter.ToSingle(data, offset),
+                WasKilled = data[offset + 4] == 1,
+                Hitbox = data[offset + 5],
+                Distance = BitConverter.ToSingle(data, offset + 6),
+                RemainingAmmo = BitConverter.ToInt32(data, offset + 10)
+            };
+        }
+    }
+
+    [Serializable]
+    public class WeaponEquipPacket
+    {
+        public int WeaponItemId;
+        public int SlotIndex;
+
+        public byte[] Serialize()
+        {
+            byte[] data = new byte[8];
+            BitConverter.GetBytes(WeaponItemId).CopyTo(data, 0);
+            BitConverter.GetBytes(SlotIndex).CopyTo(data, 4);
+            return data;
+        }
+
+        public static WeaponEquipPacket Deserialize(byte[] data)
+        {
+            return new WeaponEquipPacket
+            {
+                WeaponItemId = BitConverter.ToInt32(data, 0),
+                SlotIndex = BitConverter.ToInt32(data, 4)
+            };
+        }
+    }
+
+    [Serializable]
+    public class WeaponReloadPacket
+    {
+        public int WeaponItemId;
+
+        public byte[] Serialize()
+        {
+            return BitConverter.GetBytes(WeaponItemId);
+        }
+
+        public static WeaponReloadPacket Deserialize(byte[] data)
+        {
+            return new WeaponReloadPacket
+            {
+                WeaponItemId = BitConverter.ToInt32(data, 0)
+            };
+        }
+    }
+
+    [Serializable]
+    public class TakeDamageNotifyPacket
+    {
+        public int AttackerId;
+        public float Damage;
+        public byte DamageType;
+        public byte Hitbox;
+        public float DirectionX;
+        public float DirectionY;
+        public float DirectionZ;
+
+        public byte[] Serialize()
+        {
+            byte[] data = new byte[22];
+            BitConverter.GetBytes(AttackerId).CopyTo(data, 0);
+            BitConverter.GetBytes(Damage).CopyTo(data, 4);
+            data[8] = DamageType;
+            data[9] = Hitbox;
+            BitConverter.GetBytes(DirectionX).CopyTo(data, 10);
+            BitConverter.GetBytes(DirectionY).CopyTo(data, 14);
+            BitConverter.GetBytes(DirectionZ).CopyTo(data, 18);
+            return data;
+        }
+
+        public static TakeDamageNotifyPacket Deserialize(byte[] data)
+        {
+            return new TakeDamageNotifyPacket
+            {
+                AttackerId = BitConverter.ToInt32(data, 0),
+                Damage = BitConverter.ToSingle(data, 4),
+                DamageType = data[8],
+                Hitbox = data[9],
+                DirectionX = BitConverter.ToSingle(data, 10),
+                DirectionY = BitConverter.ToSingle(data, 14),
+                DirectionZ = BitConverter.ToSingle(data, 18)
+            };
+        }
+    }
+
+    [Serializable]
+    public class PlayerKilledPacket
+    {
+        public int VictimId;
+        public int KillerId;
+        public string KillerName;
+        public string WeaponUsed;
+        public byte Hitbox;
+        public float Distance;
+
+        public byte[] Serialize()
+        {
+            byte[] killerNameBytes = Encoding.UTF8.GetBytes(KillerName ?? "");
+            byte[] weaponBytes = Encoding.UTF8.GetBytes(WeaponUsed ?? "");
+            
+            byte[] data = new byte[18 + killerNameBytes.Length + weaponBytes.Length];
+            
+            BitConverter.GetBytes(VictimId).CopyTo(data, 0);
+            BitConverter.GetBytes(KillerId).CopyTo(data, 4);
+            
+            BitConverter.GetBytes(killerNameBytes.Length).CopyTo(data, 8);
+            killerNameBytes.CopyTo(data, 12);
+            
+            int offset = 12 + killerNameBytes.Length;
+            BitConverter.GetBytes(weaponBytes.Length).CopyTo(data, offset);
+            weaponBytes.CopyTo(data, offset + 4);
+            
+            offset = offset + 4 + weaponBytes.Length;
+            data[offset] = Hitbox;
+            BitConverter.GetBytes(Distance).CopyTo(data, offset + 1);
+            
+            return data;
+        }
+
+        public static PlayerKilledPacket Deserialize(byte[] data)
+        {
+            int victimId = BitConverter.ToInt32(data, 0);
+            int killerId = BitConverter.ToInt32(data, 4);
+            
+            int killerNameLength = BitConverter.ToInt32(data, 8);
+            string killerName = killerNameLength > 0 ? Encoding.UTF8.GetString(data, 12, killerNameLength) : "";
+            
+            int offset = 12 + killerNameLength;
+            int weaponLength = BitConverter.ToInt32(data, offset);
+            string weaponUsed = weaponLength > 0 ? Encoding.UTF8.GetString(data, offset + 4, weaponLength) : "";
+            
+            offset = offset + 4 + weaponLength;
+            byte hitbox = data[offset];
+            float distance = BitConverter.ToSingle(data, offset + 1);
+            
+            return new PlayerKilledPacket
+            {
+                VictimId = victimId,
+                KillerId = killerId,
+                KillerName = killerName,
+                WeaponUsed = weaponUsed,
+                Hitbox = hitbox,
+                Distance = distance
+            };
+        }
+    }
+
+    [Serializable]
+    public class RespawnResponsePacket
+    {
+        public bool Success;
+        public float SpawnX;
+        public float SpawnY;
+        public float SpawnZ;
+        public string Message;
+
+        public byte[] Serialize()
+        {
+            byte[] messageBytes = Encoding.UTF8.GetBytes(Message ?? "");
+            byte[] data = new byte[17 + messageBytes.Length];
+            
+            data[0] = Success ? (byte)1 : (byte)0;
+            BitConverter.GetBytes(SpawnX).CopyTo(data, 1);
+            BitConverter.GetBytes(SpawnY).CopyTo(data, 5);
+            BitConverter.GetBytes(SpawnZ).CopyTo(data, 9);
+            BitConverter.GetBytes(messageBytes.Length).CopyTo(data, 13);
+            messageBytes.CopyTo(data, 17);
+            
+            return data;
+        }
+
+        public static RespawnResponsePacket Deserialize(byte[] data)
+        {
+            bool success = data[0] == 1;
+            float spawnX = BitConverter.ToSingle(data, 1);
+            float spawnY = BitConverter.ToSingle(data, 5);
+            float spawnZ = BitConverter.ToSingle(data, 9);
+            int messageLength = BitConverter.ToInt32(data, 13);
+            string message = messageLength > 0 ? Encoding.UTF8.GetString(data, 17, messageLength) : "";
+            
+            return new RespawnResponsePacket
+            {
+                Success = success,
+                SpawnX = spawnX,
+                SpawnY = spawnY,
+                SpawnZ = spawnZ,
+                Message = message
+            };
+        }
+    }
+
+    [Serializable]
+    public class WeaponStateUpdatePacket
+    {
+        public int WeaponItemId;
+        public int CurrentAmmo;
+        public int ReserveAmmo;
+        public bool IsReloading;
+        public float ReloadProgress;
+
+        public byte[] Serialize()
+        {
+            byte[] data = new byte[17];
+            BitConverter.GetBytes(WeaponItemId).CopyTo(data, 0);
+            BitConverter.GetBytes(CurrentAmmo).CopyTo(data, 4);
+            BitConverter.GetBytes(ReserveAmmo).CopyTo(data, 8);
+            data[12] = IsReloading ? (byte)1 : (byte)0;
+            BitConverter.GetBytes(ReloadProgress).CopyTo(data, 13);
+            return data;
+        }
+
+        public static WeaponStateUpdatePacket Deserialize(byte[] data)
+        {
+            return new WeaponStateUpdatePacket
+            {
+                WeaponItemId = BitConverter.ToInt32(data, 0),
+                CurrentAmmo = BitConverter.ToInt32(data, 4),
+                ReserveAmmo = BitConverter.ToInt32(data, 8),
+                IsReloading = data[12] == 1,
+                ReloadProgress = BitConverter.ToSingle(data, 13)
+            };
+        }
+    }
 }
