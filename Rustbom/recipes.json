@@ -1,0 +1,272 @@
+[
+  {
+    "id": 1,
+    "name": "Stone Hatchet",
+    "description": "Ferramenta b\u00E1sica para cortar \u00E1rvores",
+    "resultItemId": 201,
+    "resultQuantity": 1,
+    "craftingTime": 3,
+    "requiredWorkbench": 0,
+    "category": "Tools",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 10
+      },
+      {
+        "itemId": 101,
+        "quantity": 5
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": true
+  },
+  {
+    "id": 2,
+    "name": "Stone Pickaxe",
+    "description": "Ferramenta b\u00E1sica para minerar",
+    "resultItemId": 202,
+    "resultQuantity": 1,
+    "craftingTime": 3,
+    "requiredWorkbench": 0,
+    "category": "Tools",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 10
+      },
+      {
+        "itemId": 101,
+        "quantity": 8
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": true
+  },
+  {
+    "id": 3,
+    "name": "Wooden Spear",
+    "description": "Arma de curto alcance",
+    "resultItemId": 301,
+    "resultQuantity": 1,
+    "craftingTime": 5,
+    "requiredWorkbench": 0,
+    "category": "Weapons",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 30
+      },
+      {
+        "itemId": 101,
+        "quantity": 5
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": true
+  },
+  {
+    "id": 4,
+    "name": "Hunting Bow",
+    "description": "Arma de longo alcance b\u00E1sica",
+    "resultItemId": 302,
+    "resultQuantity": 1,
+    "craftingTime": 8,
+    "requiredWorkbench": 0,
+    "category": "Weapons",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 50
+      },
+      {
+        "itemId": 400,
+        "quantity": 10
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": true
+  },
+  {
+    "id": 5,
+    "name": "Wood Foundation",
+    "description": "Funda\u00E7\u00E3o b\u00E1sica de madeira",
+    "resultItemId": 501,
+    "resultQuantity": 1,
+    "craftingTime": 10,
+    "requiredWorkbench": 0,
+    "category": "Building",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 100
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": true
+  },
+  {
+    "id": 6,
+    "name": "Wood Wall",
+    "description": "Parede b\u00E1sica de madeira",
+    "resultItemId": 502,
+    "resultQuantity": 1,
+    "craftingTime": 5,
+    "requiredWorkbench": 0,
+    "category": "Building",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 50
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": true
+  },
+  {
+    "id": 7,
+    "name": "Wood Door",
+    "description": "Porta de madeira",
+    "resultItemId": 503,
+    "resultQuantity": 1,
+    "craftingTime": 8,
+    "requiredWorkbench": 0,
+    "category": "Building",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 75
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": true
+  },
+  {
+    "id": 8,
+    "name": "Workbench Level 1",
+    "description": "Permite craftar itens mais avan\u00E7ados",
+    "resultItemId": 601,
+    "resultQuantity": 1,
+    "craftingTime": 15,
+    "requiredWorkbench": 0,
+    "category": "Crafting",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 200
+      },
+      {
+        "itemId": 101,
+        "quantity": 50
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": true
+  },
+  {
+    "id": 9,
+    "name": "Metal Hatchet",
+    "description": "Machado de metal mais eficiente",
+    "resultItemId": 203,
+    "resultQuantity": 1,
+    "craftingTime": 10,
+    "requiredWorkbench": 1,
+    "category": "Tools",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 15
+      },
+      {
+        "itemId": 102,
+        "quantity": 20
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": false
+  },
+  {
+    "id": 10,
+    "name": "Metal Pickaxe",
+    "description": "Picareta de metal mais eficiente",
+    "resultItemId": 204,
+    "resultQuantity": 1,
+    "craftingTime": 10,
+    "requiredWorkbench": 1,
+    "category": "Tools",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 15
+      },
+      {
+        "itemId": 102,
+        "quantity": 25
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": false
+  },
+  {
+    "id": 11,
+    "name": "Revolver",
+    "description": "Arma de fogo b\u00E1sica",
+    "resultItemId": 303,
+    "resultQuantity": 1,
+    "craftingTime": 20,
+    "requiredWorkbench": 1,
+    "category": "Weapons",
+    "ingredients": [
+      {
+        "itemId": 100,
+        "quantity": 50
+      },
+      {
+        "itemId": 102,
+        "quantity": 75
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": false
+  },
+  {
+    "id": 12,
+    "name": "Pistol Ammo",
+    "description": "Muni\u00E7\u00E3o para rev\u00F3lver",
+    "resultItemId": 304,
+    "resultQuantity": 10,
+    "craftingTime": 5,
+    "requiredWorkbench": 1,
+    "category": "Weapons",
+    "ingredients": [
+      {
+        "itemId": 102,
+        "quantity": 5
+      },
+      {
+        "itemId": 103,
+        "quantity": 10
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": false
+  },
+  {
+    "id": 13,
+    "name": "Stone Foundation",
+    "description": "Funda\u00E7\u00E3o mais resistente de pedra",
+    "resultItemId": 504,
+    "resultQuantity": 1,
+    "craftingTime": 15,
+    "requiredWorkbench": 1,
+    "category": "Building",
+    "ingredients": [
+      {
+        "itemId": 101,
+        "quantity": 300
+      }
+    ],
+    "unlockLevel": 0,
+    "isDefault": false
+  }
+]
